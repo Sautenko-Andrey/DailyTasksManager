@@ -62,3 +62,14 @@ ehthumbs.db
 
 # Linux specific
 *.swp
+
+# Access file
+*.txt
+
+# Database
+*.db
+
+# My folders
+build-DailyTasksManager-Desktop_Qt_6_7_0-Debug/
+build-DailyTasksManager-Desktop_Qt_6_7_0-Profile/
+build-DailyTasksManager-Desktop_Qt_6_7_0-Release/
