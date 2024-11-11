@@ -1,0 +1,64 @@
+# Qt Creator specific
+.idea/
+*.pro.user
+*.pro.user.*
+
+# Qt build and intermediate files
+*.pro.user*
+*.pro.*
+Makefile
+*.moc
+*.qmake.stash
+*.qmake.cache
+*.qmlproject.user
+*.qmlproject.user.*
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.exe
+*.dll
+*.pdb
+*.idb
+*.ilk
+*.exp
+*.app
+*.dSYM/
+*.swp
+*~
+*.bak
+*.orig
+*.suo
+*.user
+*.userosscache
+*.userprefs
+
+# Qt Creator build folder
+/debug/
+.debug/
+release/
+.releases/
+dist/
+build-*
+
+# CMake specific
+CMakeLists.txt.user
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CMakeFiles/
+
+# macOS specific
+*.dmg
+*.app
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+
+# Linux specific
+*.swp
