@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 #include <QMouseEvent>
+#include <QStandardPaths>
+#include <QSqlDatabase>
+#include "database_manager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -44,10 +47,18 @@ private:
 
     int pen_width{5};
 
+    // get user's home path
+    const QString home_path = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
+
+    DatabaseManager &database_manager = DatabaseManager::getInstance();
+
     void mousePressEvent(QMouseEvent *event) override;
 
     void mouseMoveEvent(QMouseEvent *event) override;
 
     void mouseReleaseEvent(QMouseEvent *event) override;
+
+    void create_db();
+
 };
 #endif // MAINWINDOW_H

@@ -7,12 +7,25 @@
 #include <QDebug>
 #include <QPainter>
 #include <QSpinBox>
+#include <QTime>
+#include <QDir>
+#include <QFile>
+#include <QSqlQuery>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    // prepare database manager
+    database_manager.prepareManager(this);
+
+    // Create a database from scratch if it doesn't exist in the user's home path
+    create_db();
+
+    // Query exampel
+    //QSqlQuery players_query(database_manager.getDatabase());
 
     // Iamge label settings
     ui->image_label->setAlignment(Qt::AlignCenter);
@@ -47,8 +60,8 @@ void MainWindow::addTask()
         loading a new image with a schedule.
     */
 
-    QString file_name = QFileDialog::getOpenFileName(this, "Open Image", "",
-                                                     "Images (*.png *.xpm *.jpg *.jpeg *.bmp)");
+    const QString file_name = QFileDialog::getOpenFileName(this, "Open Image", home_path,
+                                               "Images (*.png *.xpm *.jpg *.jpeg *.bmp)");
 
     if (file_name.isEmpty()){
         // empty file. simply return nothing.
@@ -79,9 +92,13 @@ void MainWindow::selectDay()
         Function goes to the databse and loads a file with tasks.
     */
 
-    qDebug() << "Selected date: " << ui->calendar->selectedDate();
+    // First of all clear image label
+    ui->image_label->clear();
 
-    //
+    // Get current time in format hours:minutes:seconds
+    QTime current_time = QTime::currentTime();
+
+    qDebug() << ui->calendar->selectedDate().toString() + " " + current_time.toString();
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
@@ -135,14 +152,65 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
+void MainWindow::create_db()   // this function doesn't work!!!!!
+{
+    /*
+        Function creates a databse in the user's home path
+    */
+
+    // Create the databse if not exists
+    const QString db_path = home_path + "/data.db";
+    if (!QFile::exists(db_path)){
+        QFile file(db_path);
+        if (!file.open(QIODevice::WriteOnly)) {
+            QMessageBox::warning(this, "Database error", "Databse creator failed");
+            exit(1);
+        }
+        else{
+            file.close();
+        }
+
+        // Create a table
+        QSqlQuery query(database_manager.getDatabase());
+
+        QString create_table_query = "CREATE TABLE IF NOT EXISTS tasks ("
+                                     "id INTEGER PRIMARY KEY, "
+                                     "date VARCHAR(20) NOT NULL, "
+                                     "file_path VARCHAR(100) NOT NULL);";
+        if(!query.exec(create_table_query)){
+            QMessageBox::warning(this, "Database error",
+                                 "Couldn't create a table tasks");
+            exit(1);
+        }
+    }
+}
+
+
 void MainWindow::on_saveTaskButton_clicked()
 {
     /*
         Function saves all paints on the image what users has made.
     */
 
-    QString file_name = QFileDialog::getSaveFileName(this, "Save Image", "",
-                                "PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp)");
+    // Create a directory where app will save all tasks images (processed or not)
+    QDir work_dir;
+
+    // Path to workdir
+    const QString work_dir_path = home_path + "/my_tasks/";
+
+    // Create work directory if it doesn't exist.
+    if(!work_dir.exists(work_dir_path)){
+        work_dir.mkpath(work_dir_path);
+    }
+
+    // Get current time in format hours:minutes:seconds
+    QTime current_time = QTime::currentTime();
+
+    QString file = ui->calendar->selectedDate().toString() + "_" + current_time.toString();
+
+    QString file_name = QFileDialog::getSaveFileName(this, "Save Image",
+                                                     work_dir_path + file + ".jpg",
+                                      "PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp)");
     if (!file_name.isEmpty()) {
         if (!modified_image.save(file_name)) {
             QMessageBox::warning(this, "Error",
