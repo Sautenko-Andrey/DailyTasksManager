@@ -18,9 +18,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    // // prepare database manager
+    // database_manager.prepareManager(this);
+
     // Create a database from scratch if it doesn't exist in the user's home path
     // Check if the directory exists; if not, create it
     const QString db_path = home_path + "/daily_tasks_app/data.db";
+
     QDir dir = QFileInfo(db_path).absoluteDir();
 
     if(!dir.exists()){
@@ -35,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent)
     if(!QFile::exists(db_path)){
         // Setup the SQLite database connection
         QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-        database = &db;
+
         db.setDatabaseName(db_path);
 
         // Open the database connection
@@ -47,9 +51,12 @@ MainWindow::MainWindow(QWidget *parent)
 
         // Create the "tasks" table
         QSqlQuery query;
+
+        qDebug() << "Preparing to create a table from scratch";
+
         const QString create_table_query = "CREATE TABLE IF NOT EXISTS tasks ("
                                           "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                                          "date VARCHAR(20) UNIQUE NOT NULL, "
+                                          "date VARCHAR(20) NOT NULL, "
                                           "file_path VARCHAR(50) UNIQUE NOT NULL);";
 
         if(!query.exec(create_table_query)){
@@ -57,7 +64,12 @@ MainWindow::MainWindow(QWidget *parent)
                                  "Failed while creating the table 'tasks'");
             exit(1);
         }
+
+        db.close();
     }
+
+    // prepare database manager
+    database_manager.prepareManager(this);
 
     // Iamge label settings
     ui->image_label->setAlignment(Qt::AlignCenter);
@@ -82,9 +94,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-
-    // close the database connection
-    database->close();
 }
 
 void MainWindow::addTask()
@@ -130,13 +139,27 @@ void MainWindow::selectDay()
     // First of all clear image label
     ui->image_label->clear();
 
-    // Get current time in format hours:minutes:seconds
-    QTime current_time = QTime::currentTime();
-
-    qDebug() << ui->calendar->selectedDate().toString() + " " + current_time.toString();
-
-    // here comes sqlite3......
     // open it and load tasks image/images into the label
+    QSqlQuery query(database_manager.getDatabase());
+
+    query.prepare("SELECT file_path FROM tasks WHERE date(date) = :selected_date");
+
+    // Get data using selected date on the calendar
+    query.bindValue(":selected_date", ui->calendar->selectedDate().toString("yyyy-MM-dd"));
+
+
+    if(!query.exec()){
+        QMessageBox::warning(this, "Database error",
+                             "Couldn't open the task/tasks. Reload app");
+
+        return;
+    }
+    else{
+
+        while(query.next()){
+            QMessageBox::information(this, "Tasks", query.value(0).toString());
+        }
+    }
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
@@ -224,8 +247,20 @@ void MainWindow::on_saveTaskButton_clicked()
         }
     }
 
-    // here comes sqlite3. I have to save path to the file and date.
-    //................code......
+    QSqlQuery query(database_manager.getDatabase());
+    query.prepare("INSERT INTO tasks(date, file_path) VALUES (datetime('now'), :cur_file_path)");
+
+    query.bindValue(":cur_file_path", file_name.replace(" ", "_"));
+
+    if(!query.exec()){
+        QMessageBox::warning(this, "Database error",
+                             "Couldn't save a new task. Reload app");
+        return;
+    }
+    else{
+        QMessageBox::information(this, "Report",
+                                 "A new task has been added!");
+    }
 }
 
 

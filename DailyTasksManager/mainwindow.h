@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QStandardPaths>
 #include <QSqlDatabase>
+#include "databasemanager.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -35,6 +36,8 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
+    DatabaseManager &database_manager = DatabaseManager::getInstance();
+
     bool drawing{false};
 
     QPoint last_point;
@@ -48,8 +51,6 @@ private:
 
     // get user's home path
     const QString home_path = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-
-    QSqlDatabase *database{nullptr};
 
     void mousePressEvent(QMouseEvent *event) override;
 
