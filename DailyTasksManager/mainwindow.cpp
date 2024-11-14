@@ -18,14 +18,46 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // prepare database manager
-    database_manager.prepareManager(this);
-
     // Create a database from scratch if it doesn't exist in the user's home path
-    create_db();
+    // Check if the directory exists; if not, create it
+    const QString db_path = home_path + "/daily_tasks_app/data.db";
+    QDir dir = QFileInfo(db_path).absoluteDir();
 
-    // Query exampel
-    //QSqlQuery players_query(database_manager.getDatabase());
+    if(!dir.exists()){
+        if(!dir.mkpath(".")){
+            QMessageBox::warning(this, "Database error",
+                                 "Failed while creating databse directory");
+            exit(1);
+        }
+    }
+
+    // Check if the database file exists
+    if(!QFile::exists(db_path)){
+        // Setup the SQLite database connection
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
+        database = &db;
+        db.setDatabaseName(db_path);
+
+        // Open the database connection
+        if(!db.open()){
+            QMessageBox::warning(this, "Databse error",
+                                 "Failed while openeing the database");
+            exit(1);
+        }
+
+        // Create the "tasks" table
+        QSqlQuery query;
+        const QString create_table_query = "CREATE TABLE IF NOT EXISTS tasks ("
+                                          "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                          "date VARCHAR(20) UNIQUE NOT NULL, "
+                                          "file_path VARCHAR(50) UNIQUE NOT NULL);";
+
+        if(!query.exec(create_table_query)){
+            QMessageBox::warning(this, "Database error",
+                                 "Failed while creating the table 'tasks'");
+            exit(1);
+        }
+    }
 
     // Iamge label settings
     ui->image_label->setAlignment(Qt::AlignCenter);
@@ -50,6 +82,9 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+
+    // close the database connection
+    database->close();
 }
 
 void MainWindow::addTask()
@@ -99,6 +134,9 @@ void MainWindow::selectDay()
     QTime current_time = QTime::currentTime();
 
     qDebug() << ui->calendar->selectedDate().toString() + " " + current_time.toString();
+
+    // here comes sqlite3......
+    // open it and load tasks image/images into the label
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
@@ -152,39 +190,6 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
-void MainWindow::create_db()   // this function doesn't work!!!!!
-{
-    /*
-        Function creates a databse in the user's home path
-    */
-
-    // Create the databse if not exists
-    const QString db_path = home_path + "/data.db";
-    if (!QFile::exists(db_path)){
-        QFile file(db_path);
-        if (!file.open(QIODevice::WriteOnly)) {
-            QMessageBox::warning(this, "Database error", "Databse creator failed");
-            exit(1);
-        }
-        else{
-            file.close();
-        }
-
-        // Create a table
-        QSqlQuery query(database_manager.getDatabase());
-
-        QString create_table_query = "CREATE TABLE IF NOT EXISTS tasks ("
-                                     "id INTEGER PRIMARY KEY, "
-                                     "date VARCHAR(20) NOT NULL, "
-                                     "file_path VARCHAR(100) NOT NULL);";
-        if(!query.exec(create_table_query)){
-            QMessageBox::warning(this, "Database error",
-                                 "Couldn't create a table tasks");
-            exit(1);
-        }
-    }
-}
-
 
 void MainWindow::on_saveTaskButton_clicked()
 {
@@ -218,6 +223,9 @@ void MainWindow::on_saveTaskButton_clicked()
                                  "Maybe you have forgotten to specify file's extension");
         }
     }
+
+    // here comes sqlite3. I have to save path to the file and date.
+    //................code......
 }
 
 

@@ -64,7 +64,7 @@ ehthumbs.db
 *.swp
 
 # Access file
-*.txt
+access.txt
 
 # Database
 *.db
