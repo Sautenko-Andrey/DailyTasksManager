@@ -18,9 +18,6 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // // prepare database manager
-    // database_manager.prepareManager(this);
-
     // Create a database from scratch if it doesn't exist in the user's home path
     // Check if the directory exists; if not, create it
     const QString db_path = home_path + "/daily_tasks_app/data.db";
@@ -79,6 +76,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->penWidthSpinBox->setMaximum(50);
     ui->penWidthSpinBox->setValue(pen_width);
 
+    // Make next and previous task buttons disabled
+    ui->previousTaskBtn->setDisabled(true);
+    ui->nextTaskBtn->setDisabled(true);
+
+    // Make save task button disabled
+    ui->saveTaskButton->setDisabled(true);
+
+    // Calendar settings
+    ui->calendar->setLocale(QLocale::English);
+    ui->calendar->setGridVisible(true);
+    ui->calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    ui->calendar->setFirstDayOfWeek(Qt::Monday);
+
     // Signals and slots
     //
     // When user wants to add a new task (click ENTER on calendar date)
@@ -103,6 +113,8 @@ void MainWindow::addTask()
         When user click ENTER on selected date it starts a dialog for
         loading a new image with a schedule.
     */
+
+    ui->saveTaskButton->setDisabled(false);
 
     const QString file_name = QFileDialog::getOpenFileName(this, "Open Image", home_path,
                                                "Images (*.png *.xpm *.jpg *.jpeg *.bmp)");
@@ -136,6 +148,17 @@ void MainWindow::selectDay()
         Function goes to the databse and loads a file with tasks.
     */
 
+    ui->previousTaskBtn->setDisabled(false);
+    ui->nextTaskBtn->setDisabled(false);
+    ui->saveTaskButton->setDisabled(false);
+
+    // Clear selected day tasks container
+    selected_day_tasks.clear();
+
+    // Drop tasks counter
+    tasks_counter = 0;
+
+
     // First of all clear image label
     ui->image_label->clear();
 
@@ -147,7 +170,6 @@ void MainWindow::selectDay()
     // Get data using selected date on the calendar
     query.bindValue(":selected_date", ui->calendar->selectedDate().toString("yyyy-MM-dd"));
 
-
     if(!query.exec()){
         QMessageBox::warning(this, "Database error",
                              "Couldn't open the task/tasks. Reload app");
@@ -156,9 +178,41 @@ void MainWindow::selectDay()
     }
     else{
 
+        // QStringList selected_day_tasks;
         while(query.next()){
-            QMessageBox::information(this, "Tasks", query.value(0).toString());
+            // Push image/images in the container (path/pathes)
+            selected_day_tasks.push_back(query.value(0).toString());
         }
+
+        // Check if there is any task in the container
+        if(selected_day_tasks.isEmpty()){
+            ui->image_label->setText("No tasks on this day.");
+            return;
+        }
+
+        // Check how many tasks on selected days and disabled
+        if(tasks_counter == 0 && selected_day_tasks.size() == 1){
+            ui->previousTaskBtn->setDisabled(true);
+            ui->nextTaskBtn->setDisabled(true);
+        }
+        else{
+            ui->previousTaskBtn->setDisabled(false);
+            ui->nextTaskBtn->setDisabled(false);
+        }
+
+        // Check and load the first task from container
+        QImage image(selected_day_tasks.first());
+        if (image.isNull()){
+            QMessageBox::warning(this, "Image loading error", "Failed to load image.");
+            return;
+        }
+
+        // Converting QImage to QPixmap for displaying it in QLabel
+        ui->image_label->setPixmap(QPixmap::fromImage(image));
+        ui->image_label->adjustSize();
+
+        // copy original for the next purposes (drawing)
+        modified_image = image;
     }
 }
 
@@ -190,6 +244,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
 
         // Drawing a line on the image
         QPainter painter(&modified_image);
+
         QPen pen(pen_color, pen_width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         painter.setPen(pen);
         painter.drawLine(last_point, current_point);
@@ -236,6 +291,8 @@ void MainWindow::on_saveTaskButton_clicked()
 
     QString file = ui->calendar->selectedDate().toString() + "_" + current_time.toString();
 
+    file.replace(" ", "_");
+
     QString file_name = QFileDialog::getSaveFileName(this, "Save Image",
                                                      work_dir_path + file + ".jpg",
                                       "PNG (*.png);;JPEG (*.jpg *.jpeg);;BMP (*.bmp)");
@@ -248,8 +305,9 @@ void MainWindow::on_saveTaskButton_clicked()
     }
 
     QSqlQuery query(database_manager.getDatabase());
-    query.prepare("INSERT INTO tasks(date, file_path) VALUES (datetime('now'), :cur_file_path)");
+    query.prepare("INSERT INTO tasks(date, file_path) VALUES (:sel_date, :cur_file_path)");
 
+    query.bindValue(":sel_date", ui->calendar->selectedDate().toString("yyyy-MM-dd"));
     query.bindValue(":cur_file_path", file_name.replace(" ", "_"));
 
     if(!query.exec()){
@@ -284,5 +342,74 @@ void MainWindow::changePenWidth()
     */
 
     pen_width = ui->penWidthSpinBox->value();
+}
+
+
+void MainWindow::on_nextTaskBtn_clicked()
+{
+    /*
+        Function allows user to watch a next task
+    */
+
+    ui->previousTaskBtn->setDisabled(false);
+
+    // Check is there one more task
+    if(selected_day_tasks.size() > tasks_counter + 1){
+        QImage image(selected_day_tasks[++tasks_counter]);
+        if (image.isNull()){
+            QMessageBox::warning(this, "Image loading error", "Failed to load image.");
+            return;
+        }
+
+        // Converting QImage to QPixmap for displaying it in QLabel
+        ui->image_label->setPixmap(QPixmap::fromImage(image));
+        ui->image_label->adjustSize();
+
+        // copy original for the next purposes (drawing)
+        modified_image = image;
+
+        if((tasks_counter + 1) == selected_day_tasks.size()){
+            ui->nextTaskBtn->setDisabled(true);
+        }
+    }
+    else{
+        return;
+    }
+
+}
+
+
+void MainWindow::on_previousTaskBtn_clicked()
+{
+    /*
+        Function allows user to watch a previous task
+    */
+
+    ui->nextTaskBtn->setDisabled(false);
+
+    --tasks_counter;
+
+    if(tasks_counter >= 0){
+        QImage image(selected_day_tasks[tasks_counter]);
+
+        if (image.isNull()){
+            QMessageBox::warning(this, "Image loading error", "Failed to load image.");
+            return;
+        }
+
+        // Converting QImage to QPixmap for displaying it in QLabel
+        ui->image_label->setPixmap(QPixmap::fromImage(image));
+        ui->image_label->adjustSize();
+
+        // copy original for the next purposes (drawing)
+        modified_image = image;
+
+        if(tasks_counter == 0){
+            ui->previousTaskBtn->setDisabled(true);
+        }
+    }
+    else{
+        return;
+    }
 }
 
