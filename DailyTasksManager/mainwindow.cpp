@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QSqlQuery>
+#include <QTextCharFormat>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -49,12 +50,12 @@ MainWindow::MainWindow(QWidget *parent)
         // Create the "tasks" table
         QSqlQuery query;
 
-        qDebug() << "Preparing to create a table from scratch";
-
         const QString create_table_query = "CREATE TABLE IF NOT EXISTS tasks ("
-                                          "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                                          "date VARCHAR(20) NOT NULL, "
-                                          "file_path VARCHAR(50) UNIQUE NOT NULL);";
+                                           "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                                           "date VARCHAR(20) NOT NULL, "
+                                           "file_path VARCHAR(50) UNIQUE NOT NULL, "
+                                           "is_done INTEGER DEFAULT 0 CHECK(is_done IN (0, 1)));";
+
 
         if(!query.exec(create_table_query)){
             QMessageBox::warning(this, "Database error",
@@ -89,6 +90,12 @@ MainWindow::MainWindow(QWidget *parent)
     ui->calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
     ui->calendar->setFirstDayOfWeek(Qt::Monday);
 
+    // Change bacground color for days with at least 1 task
+    mark_days_with_task();
+
+    // Make "Done" checkbox disabled
+    ui->doneCheckBox->setDisabled(true);
+
     // Signals and slots
     //
     // When user wants to add a new task (click ENTER on calendar date)
@@ -99,12 +106,53 @@ MainWindow::MainWindow(QWidget *parent)
 
     //When user wants to change pen width
     connect(ui->penWidthSpinBox, &QSpinBox::valueChanged, this, &MainWindow::changePenWidth);
+
+    // When user ckick done checkbox
+    connect(ui->doneCheckBox, &QCheckBox::checkStateChanged,
+            this, &MainWindow::taskDoneChanged);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+void MainWindow::mark_one_day(const QDate &date, const QColor &color)
+{
+    QTextCharFormat format;
+
+    format.setBackground(color);
+
+    ui->calendar->setDateTextFormat(date, format);
+}
+
+
+void MainWindow::mark_days_with_task()
+{
+    // Mark all days on the calendar if they have at least 1 task
+    // First of all let's get days with tasks
+    QSqlQuery query(database_manager.getDatabase());
+    if(!query.exec("SELECT date, is_done from tasks;")){
+        QMessageBox::warning(this, "Database error",
+                             "Couldn't load days with task/tasks");
+
+        return;
+    }
+    else{
+        while(query.next()){
+
+            // Create a format for the "busy calendar cells"
+            if(query.value(1).toInt() == 1){
+                // if tasks done
+                mark_one_day(query.value(0).toDate(), Qt::green);
+            }
+            else{
+                mark_one_day(query.value(0).toDate(), Qt::yellow);
+            }
+        }
+    }
+}
+
 
 void MainWindow::addTask()
 {
@@ -138,6 +186,12 @@ void MainWindow::addTask()
 
     // copy original for the next purposes (drawing)
     modified_image = image;
+
+    // Mark this day as a day wich has task
+    mark_one_day(ui->calendar->selectedDate(), Qt::yellow);
+
+    // Make "Done" checkbox available
+    ui->doneCheckBox->setDisabled(false);
 }
 
 void MainWindow::selectDay()
@@ -214,6 +268,11 @@ void MainWindow::selectDay()
         // copy original for the next purposes (drawing)
         modified_image = image;
     }
+
+    // Make "Done" checkbox available and not checked
+    ui->doneCheckBox->setDisabled(false);
+    ui->doneCheckBox->setChecked(false);
+
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
@@ -305,10 +364,17 @@ void MainWindow::on_saveTaskButton_clicked()
     }
 
     QSqlQuery query(database_manager.getDatabase());
-    query.prepare("INSERT INTO tasks(date, file_path) VALUES (:sel_date, :cur_file_path)");
+    query.prepare("INSERT INTO tasks(date, file_path, is_done) VALUES (:sel_date, :cur_file_path, :status)");
 
     query.bindValue(":sel_date", ui->calendar->selectedDate().toString("yyyy-MM-dd"));
     query.bindValue(":cur_file_path", file_name.replace(" ", "_"));
+
+    if(ui->doneCheckBox->isChecked()){
+        query.bindValue(":status", 1);
+    }
+    else{
+        query.bindValue(":status", 0);
+    }
 
     if(!query.exec()){
         QMessageBox::warning(this, "Database error",
@@ -375,7 +441,6 @@ void MainWindow::on_nextTaskBtn_clicked()
     else{
         return;
     }
-
 }
 
 
@@ -410,6 +475,14 @@ void MainWindow::on_previousTaskBtn_clicked()
     }
     else{
         return;
+    }
+}
+
+void MainWindow::taskDoneChanged()
+{
+    // Mark a calendar day with a green color if tasks done
+    if(ui->doneCheckBox->isChecked()){
+        mark_one_day(ui->calendar->selectedDate(), Qt::green);
     }
 }
 

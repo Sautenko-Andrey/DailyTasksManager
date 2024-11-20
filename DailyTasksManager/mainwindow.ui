@@ -85,6 +85,13 @@
            <widget class="QSpinBox" name="penWidthSpinBox"/>
           </item>
           <item>
+           <widget class="QCheckBox" name="doneCheckBox">
+            <property name="text">
+             <string>Done</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QPushButton" name="saveTaskButton">
             <property name="text">
              <string>save task</string>

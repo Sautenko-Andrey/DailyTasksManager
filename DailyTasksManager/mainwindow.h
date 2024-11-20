@@ -37,6 +37,8 @@ private slots:
 
     void on_previousTaskBtn_clicked();
 
+    void taskDoneChanged();
+
 private:
     Ui::MainWindow *ui;
 
@@ -65,6 +67,10 @@ private:
     void mouseMoveEvent(QMouseEvent *event) override;
 
     void mouseReleaseEvent(QMouseEvent *event) override;
+
+    void mark_days_with_task();
+
+    void mark_one_day(const QDate &date, const QColor &color);
 
 };
 
@@ -277,6 +283,28 @@ QScrollBar:vertical {
     QCalendarWidget QAbstractItemView::item:disabled {
         background-color: #1E1E1E; /* Darker background for disabled cells */
         color: #555555;            /* Dimmed text for disabled cells */
+    }
+
+    QCheckBox {
+        background-color: #2E2E2E; /* Calendar background */
+        color: #FFD700;            /* Default text color */
+    }
+
+    QCheckBox::indicator {
+        width: 16px;               /* Adjust size if needed */
+        height: 16px;
+        background-color: #FFD700; /* Square background color */
+        border: 1px solid #FFD700; /* Border color */
+    }
+
+    QCheckBox::indicator:checked {
+        background-color: #FFD700; /* Background when checked */
+        border: 1px solid #FFD700; /* Border when checked */
+    }
+
+    QCheckBox::indicator:unchecked {
+        background-color: #2E2E2E; /* Background when unchecked */
+        border: 1px solid #FFD700; /* Border when unchecked */
     }
 )";
 
